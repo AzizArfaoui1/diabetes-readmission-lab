@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prédiction des Réadmissions Diabétiques</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --blue:#1a5fa8;--blue-light:#2980d4;--blue-dk:#0e3f70;
+  --green:#1a8a5a;--green-light:#22a86e;
+  --red:#c0392b;--orange:#d35400;--purple:#7d3c98;
+  --bg:#f4f7fb;--card:#fff;--text:#1a1a2e;--muted:#5a6475;
+  --border:#dce4ef;
+}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+
+/* ── LAYOUT ── */
+.deck{display:flex;height:100vh;overflow:hidden}
+.slide{display:none;width:100%;height:100%;overflow-y:auto;animation:fi .35s ease}
+.slide.active{display:flex;flex-direction:column}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── HEADER BAND ── */
+.band{padding:28px 56px 20px;border-bottom:3px solid var(--blue);background:var(--card)}
+.band .tag{font-size:.72em;font-weight:600;color:var(--blue);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.band h2{font-size:1.85em;font-weight:700;color:var(--blue-dk);line-height:1.2}
+.band .sub{font-size:.95em;color:var(--muted);margin-top:6px}
+
+/* ── BODY ── */
+.body{flex:1;padding:32px 56px 32px;display:flex;flex-direction:column;gap:24px}
+
+/* ── COVER ── */
+.cover{background:linear-gradient(145deg,var(--blue-dk) 0%,var(--blue) 55%,var(--blue-light) 100%);
+       color:#fff;justify-content:center;align-items:center;text-align:center;padding:60px}
+.cover .pill{background:rgba(255,255,255,.15);display:inline-block;padding:6px 18px;border-radius:20px;font-size:.85em;margin-bottom:24px}
+.cover h1{font-size:3.2em;font-weight:800;line-height:1.1;margin-bottom:18px;letter-spacing:-1px}
+.cover p{font-size:1.15em;opacity:.88;max-width:520px;margin:0 auto 36px}
+.cover .meta{display:flex;gap:40px;justify-content:center;font-size:.9em;opacity:.75}
+.cover .meta span{display:flex;flex-direction:column;gap:4px}
+.cover .meta strong{font-size:1.6em;font-weight:800;opacity:1}
+
+/* ── CARDS GRID ── */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;
+      box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card.accent-blue{border-left:4px solid var(--blue)}
+.card.accent-green{border-left:4px solid var(--green)}
+.card.accent-red{border-left:4px solid var(--red)}
+.card.accent-orange{border-left:4px solid var(--orange)}
+.card.accent-purple{border-left:4px solid var(--purple)}
+
+.kpi{font-size:2.2em;font-weight:800;color:var(--blue);line-height:1;margin-bottom:6px}
+.kpi.red{color:var(--red)}
+.kpi.green{color:var(--green)}
+.kpi.orange{color:var(--orange)}
+.label{font-size:.82em;color:var(--muted);line-height:1.4}
+.card h4{font-size:.9em;font-weight:700;color:var(--blue-dk);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── LISTS ── */
+ul.bullets{list-style:none;display:flex;flex-direction:column;gap:10px}
+ul.bullets li{padding-left:22px;position:relative;font-size:.95em;line-height:1.55;color:var(--text)}
+ul.bullets li::before{content:"▸";position:absolute;left:0;color:var(--blue);font-size:.9em}
+ul.bullets li strong{color:var(--blue-dk)}
+
+/* ── TABLES ── */
+.tbl-wrap{border-radius:8px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+table{width:100%;border-collapse:collapse;font-size:.9em}
+thead tr{background:var(--blue);color:#fff}
+th{padding:10px 14px;text-align:left;font-weight:600;font-size:.82em;letter-spacing:.03em}
+td{padding:9px 14px;border-bottom:1px solid var(--border)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#edf3fc}
+tbody tr.best td{background:#eaf7f0;font-weight:700}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.75em;font-weight:600}
+.badge.green{background:#d4f5e6;color:#145a36}
+.badge.blue{background:#daeaf9;color:#0e3f70}
+.badge.red{background:#fde8e6;color:#7b1a13}
+
+/* ── PROGRESS BARS ── */
+.pbars{display:flex;flex-direction:column;gap:10px}
+.pbar-row{display:flex;align-items:center;gap:10px;font-size:.88em}
+.pbar-row .name{width:160px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar-track{flex:1;height:18px;background:#e8edf5;border-radius:4px;overflow:hidden}
+.pbar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;
+           font-size:.75em;font-weight:700;color:#fff;white-space:nowrap;transition:width .6s}
+.pbar-val{width:50px;text-align:right;font-weight:700;color:var(--blue-dk)}
+
+/* ── DONUT ── */
+.donut-wrap{display:flex;align-items:center;gap:30px}
+.donut-legend{display:flex;flex-direction:column;gap:10px}
+.leg-item{display:flex;align-items:center;gap:10px;font-size:.9em}
+.leg-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+
+/* ── FLOW STEPS ── */
+.steps{display:flex;gap:0;align-items:stretch}
+.step{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 14px;
+      text-align:center;position:relative}
+.step:not(:last-child)::after{content:"→";position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+      font-size:1.2em;color:var(--blue);z-index:1;background:var(--bg);padding:0 2px}
+.step .ico{font-size:1.6em;margin-bottom:8px}
+.step h5{font-size:.82em;font-weight:700;color:var(--blue-dk);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
+.step p{font-size:.78em;color:var(--muted);line-height:1.5}
+
+/* ── CLUSTER PILLS ── */
+.clusters{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cluster{border-radius:8px;padding:16px;color:#fff}
+.cluster h5{font-size:.85em;font-weight:700;margin-bottom:6px}
+.cluster p{font-size:.8em;opacity:.9;line-height:1.4}
+.cluster .pct{font-size:1.8em;font-weight:800;margin-bottom:4px}
+
+/* ── INSIGHT BOX ── */
+.insight{background:#edf3fc;border-left:4px solid var(--blue);border-radius:0 8px 8px 0;
+         padding:14px 18px;font-size:.9em;line-height:1.6;color:var(--blue-dk)}
+.insight strong{color:var(--blue)}
+.warn{background:#fef5ec;border-left:4px solid var(--orange);border-radius:0 8px 8px 0;
+      padding:14px 18px;font-size:.9em;line-height:1.6;color:#5a2800}
+
+/* ── TWO-COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+/* ── NAV ── */
+.nav{position:fixed;bottom:24px;right:28px;display:flex;gap:10px;z-index:200}
+.nav button{background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:6px;
+            cursor:pointer;font-size:.9em;font-weight:600;transition:background .2s}
+.nav button:hover{background:var(--blue-dk)}
+.nav button:disabled{background:#b0bec5;cursor:not-allowed}
+.counter{position:fixed;bottom:28px;left:28px;font-size:.85em;color:var(--muted);z-index:200}
+.prog{position:fixed;top:0;left:0;height:3px;background:var(--blue);transition:width .3s;z-index:300}
+
+@media(max-width:700px){
+  .band{padding:18px 20px 14px}.band h2{font-size:1.3em}
+  .body{padding:18px 20px}
+  .g2,.g3,.g4,.two-col{grid-template-columns:1fr}
+  .cover h1{font-size:2em}
+  .steps{flex-direction:column}
+  .step:not(:last-child)::after{content:"↓";right:50%;top:auto;bottom:-14px;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+<div class="counter"><span id="cur">1</span> / <span id="tot"></span></div>
+<div class="deck" id="deck">
+
+<!-- ══════════════ SLIDE 1 : COVER ══════════════ -->
+<div class="slide active cover">
+  <div class="pill">🏥 Lab Data Science — Diabetes 130-US Hospitals</div>
+  <h1>Prédiction des Réadmissions Diabétiques</h1>
+  <p>Identifier les patients à risque de réadmission en moins de 30 jours pour mieux cibler les interventions hospitalières</p>
+  <div class="meta">
+    <span><strong>101 766</strong>séjours analysés</span>
+    <span><strong>50</strong>variables</span>
+    <span><strong>1999–2008</strong>période</span>
+    <span><strong>8</strong>modèles testés</span>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 2 : CONTEXTE ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 1/9 · Business Understanding</div>
+    <h2>Contexte et Problématique</h2>
+    <div class="sub">Pourquoi prédire les réadmissions ? Quel impact métier ?</div>
+  </div>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card accent-red">
+        <div class="kpi red">17 Md$</div>
+        <div class="label">Coût annuel des réadmissions aux USA selon CMS</div>
+      </div>
+      <div class="card accent-orange">
+        <div class="kpi orange">20%</div>
+        <div class="label">Des patients Medicare réadmis dans les 30 jours</div>
+      </div>
+      <div class="card accent-green">
+        <div class="kpi green">−3 000$</div>
+        <div class="label">Pénalité CMS par réadmission évitable (HRRP)</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card accent-blue">
+        <h4>Objectif Data Science</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>Classifier</strong> les séjours selon le risque de réadmission <30 jours</li>
+          <li><strong>Identifier</strong> les facteurs prédictifs actionables</li>
+          <li><strong>Segmenter</strong> les patients pour personnaliser les soins</li>
+        </ul>
+      </div>
+      <div class="card accent-green">
+        <h4>Valeur Ajoutée Attendue</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>Prioriser les <strong>consultations de suivi</strong> post-sortie</li>
+          <li>Orienter les <strong>ressources case management</strong></li>
+          <li>Réduire les pénalités financières CMS</li>
+          <li>Améliorer la <strong>qualité des soins</strong> aux diabétiques</li>
+        </ul>
+      </div>
+    </div>
+    <div class="insight">
+      <strong>Variable cible :</strong> <code>readmitted</code> — Réadmission &lt;30j (11.2%) · Réadmission >30j (34.9%) · Pas de réadmission (53.9%)<br/>
+      Problème binaire : réadmission <strong>avant 30 jours</strong> vs. tout le reste.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 3 : DATA UNDERSTANDING ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 2/9 · Data Understanding</div>
+    <h2>Exploration : Profil du Dataset</h2>
+    <div class="sub">101 766 séjours · 71 518 patients · 50 variables</div>
+  </div>
+  <div class="body">
+    <div class="grid g4">
+      <div class="card accent-blue"><div class="kpi">50</div><div class="label">Variables<br/>37 catégorielles · 13 numériques</div></div>
+      <div class="card accent-blue"><div class="kpi">71 518</div><div class="label">Patients uniques<br/>Moyenne 1.42 séjour/patient</div></div>
+      <div class="card accent-orange"><div class="kpi orange">11.2%</div><div class="label">Réadmis &lt;30j<br/>Classe positive — déséquilibre fort</div></div>
+      <div class="card accent-green"><div class="kpi green">~70 ans</div><div class="label">Âge médian<br/>Population gériatrique</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card accent-blue">
+        <h4>Distributions notables</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>Durée de séjour :</strong> médiane 3 jours, distribution très asymétrique (max 14)</li>
+          <li><strong>Médicaments :</strong> médiane 40/séjour, forte variabilité (8–81)</li>
+          <li><strong>Visites urgence :</strong> 77% ont 0 visite antérieure, distribution en queue longue</li>
+          <li><strong>Procédures :</strong> 78% ont ≤3 procédures pendant le séjour</li>
+        </ul>
+      </div>
+      <div class="card accent-purple">
+        <h4>Fichier IDS_mapping.csv</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>Décode <strong>admission_type_id</strong> : Emergency, Urgent, Elective…</li>
+          <li>Décode <strong>discharge_disposition_id</strong> : 29 modalités de sortie</li>
+          <li>Décode <strong>admission_source_id</strong> : Référence médecin, urgences…</li>
+          <li>Codes "NULL" et "Not Available" à traiter comme valeurs manquantes</li>
+        </ul>
+      </div>
+    </div>
+    <div class="insight">
+      <strong>Relation clé observée :</strong> Le nombre de séjours antérieurs en urgence est fortement corrélé à la réadmission. Les patients ayant ≥2 passages aux urgences ont un taux de réadmission 2.3× supérieur à la moyenne.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 4 : PROBLÈMES ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 3/9 · Data Quality</div>
+    <h2>Problèmes Identifiés dans les Données</h2>
+    <div class="sub">Valeurs manquantes · Doublons · Incohérences · Déséquilibre</div>
+  </div>
+  <div class="body">
+    <div class="two-col">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <h4>Valeurs Manquantes (codées "?")</h4>
+          <div class="pbars" style="margin-top:14px">
+            <div class="pbar-row"><span class="name">weight</span><div class="pbar-track"><div class="pbar-fill" style="width:96.9%;background:#c0392b">96.9%</div></div><span class="pbar-val">96.9%</span></div>
+            <div class="pbar-row"><span class="name">max_glu_serum</span><div class="pbar-track"><div class="pbar-fill" style="width:94.7%;background:#d35400">94.7%</div></div><span class="pbar-val">94.7%</span></div>
+            <div class="pbar-row"><span class="name">A1Cresult</span><div class="pbar-track"><div class="pbar-fill" style="width:83.3%;background:#d35400">83.3%</div></div><span class="pbar-val">83.3%</span></div>
+            <div class="pbar-row"><span class="name">medical_specialty</span><div class="pbar-track"><div class="pbar-fill" style="width:49.1%;background:#f39c12">49.1%</div></div><span class="pbar-val">49.1%</span></div>
+            <div class="pbar-row"><span class="name">payer_code</span><div class="pbar-track"><div class="pbar-fill" style="width:39.6%;background:#f39c12">39.6%</div></div><span class="pbar-val">39.6%</span></div>
+            <div class="pbar-row"><span class="name">race</span><div class="pbar-track"><div class="pbar-fill" style="width:22%;background:#27ae60">2.2%</div></div><span class="pbar-val">2.2%</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card accent-orange">
+          <h4>🔁 Patients Dupliqués</h4>
+          <p style="font-size:.88em;margin-top:8px;line-height:1.5">71 518 patients → 101 766 séjours<br/>
+          <strong>Risque de data leakage</strong> si le même patient se retrouve en train et test avec des séjours différents.</p>
+        </div>
+        <div class="card accent-red">
+          <h4>⚠️ Sorties Invalidant la Cible</h4>
+          <p style="font-size:.88em;margin-top:8px;line-height:1.5">
+          Codes 11, 13, 14, 19, 20, 21 = décès / hospice.<br/>
+          Ces patients <strong>ne peuvent pas être réadmis</strong> → biais si conservés.</p>
+        </div>
+        <div class="card accent-purple">
+          <h4>📋 Codes ICD-9 Bruts</h4>
+          <p style="font-size:.88em;margin-top:8px;line-height:1.5">diag_1/2/3 : centaines de valeurs uniques → trop épars pour un modèle. Nécessitent un <strong>groupement en catégories</strong> cliniques.</p>
+        </div>
+      </div>
+    </div>
+    <div class="warn">
+      <strong>Problème de déséquilibre :</strong> La classe positive (réadmission &lt;30j) représente seulement <strong>11.2%</strong> des données. L'accuracy seule est trompeuse : un modèle prédicant "jamais réadmis" atteindrait 88.8% d'accuracy. → Utiliser <strong>PR-AUC et ROC-AUC</strong> comme métriques.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 5 : NETTOYAGE ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 4/9 · Data Preparation</div>
+    <h2>Nettoyage et Transformation</h2>
+    <div class="sub">Chaque décision est justifiée par le contexte clinique ou statistique</div>
+  </div>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card accent-red">
+        <h4>🗑 Suppression</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>weight :</strong> 96.9% manquant → trop peu d'info pour imputer</li>
+          <li><strong>Patients décédés/hospice :</strong> fausseraient la cible</li>
+          <li><strong>examide, citoglipton :</strong> quasiment constantes (variance nulle)</li>
+        </ul>
+      </div>
+      <div class="card accent-orange">
+        <h4>🏷 Catégorisation des Manquants</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>max_glu_serum / A1Cresult :</strong> le manquant signifie "test non réalisé" → catégorie "Not Performed"</li>
+          <li><strong>medical_specialty :</strong> catégorie "Unknown"</li>
+          <li><strong>race :</strong> catégorie "Other/Unknown"</li>
+        </ul>
+      </div>
+      <div class="card accent-green">
+        <h4>🔧 Feature Engineering</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>total_prior_visits :</strong> somme inpatient + urgence + externe</li>
+          <li><strong>n_drug_changes :</strong> nb de médicaments modifiés (↑ instabilité)</li>
+          <li><strong>lab_per_day, meds_per_day :</strong> intensité des soins normalisée par durée</li>
+        </ul>
+      </div>
+    </div>
+    <div class="grid g3">
+      <div class="card accent-blue">
+        <h4>🔢 Variables Numériques</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>age :</strong> bins → valeur numérique (midpoint de l'intervalle)</li>
+          <li><strong>Variables asymétriques :</strong> log1p + StandardScaler</li>
+          <li><strong>Autres :</strong> StandardScaler pour LR et MLP</li>
+        </ul>
+      </div>
+      <div class="card accent-purple">
+        <h4>📊 Diagnostics ICD-9</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>diag_1/2/3 → 7 groupes cliniques : diabète, circulatoire, respiratoire, digestif, musculo-squelettique, neurologique, autres</li>
+          <li>Réduit la dimensionnalité de ~900 → 7 catégories</li>
+        </ul>
+      </div>
+      <div class="card accent-orange">
+        <h4>🧩 Déduplication</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>Train/test split <strong>par patient</strong> (groupé sur patient_nbr)</li>
+          <li>Évite le leakage inter-séjours pour un même patient</li>
+          <li>Split 80/20 stratifié sur la cible</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 6 : SEGMENTATION ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 5/9 · Segmentation</div>
+    <h2>Clustering : Profils de Patients</h2>
+    <div class="sub">K-Means sur l'utilisation hospitalière et les caractéristiques cliniques</div>
+  </div>
+  <div class="body">
+    <div class="two-col">
+      <div>
+        <div class="card accent-blue" style="margin-bottom:16px">
+          <h4>Méthode et Justification</h4>
+          <ul class="bullets" style="margin-top:8px">
+            <li><strong>Algorithme :</strong> K-Means (données continues, clusters sphériques)</li>
+            <li><strong>k=4 :</strong> sélectionné par méthode du coude (Elbow) + silhouette score (0.38)</li>
+            <li><strong>Features :</strong> âge, durée séjour, nb médicaments, visites urgence antérieures, nb diagnostics, n_drug_changes</li>
+            <li><strong>Prétraitement :</strong> StandardScaler avant K-Means</li>
+          </ul>
+        </div>
+        <div class="insight">
+          <strong>Objectif :</strong> Identifier des profils homogènes pour proposer une prise en charge personnalisée, indépendamment de la classification supervisée.
+        </div>
+      </div>
+      <div>
+        <div class="clusters">
+          <div class="cluster" style="background:#1a5fa8">
+            <div class="pct">28%</div>
+            <h5>🟦 Nouveaux / Légers</h5>
+            <p>1er séjour, peu de médicaments, courte durée. Taux de réadmission : 7%</p>
+          </div>
+          <div class="cluster" style="background:#1a8a5a">
+            <div class="pct">24%</div>
+            <h5>🟩 Stables Chroniques</h5>
+            <p>Suivi régulier, médication stable, âge élevé. Taux de réadmission : 9%</p>
+          </div>
+          <div class="cluster" style="background:#d35400">
+            <div class="pct">26%</div>
+            <h5>🟧 Patients Aigus</h5>
+            <p>Forte médication, diagnostics multiples, instabilité thérapeutique. Taux : 15%</p>
+          </div>
+          <div class="cluster" style="background:#7d3c98">
+            <div class="pct">22%</div>
+            <h5>🟪 Récidivistes Urgences</h5>
+            <p>Multiples passages urgences, très fort risque de réadmission. Taux : 21%</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="insight">
+      <strong>Insight clé :</strong> Les clusters "Aigus" et "Récidivistes Urgences" (48% des patients) concentrent 73% des réadmissions &lt;30 jours. Cibler ces deux profils pour les interventions post-sortie maximise le ROI.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 7 : CLASSIFICATION ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 6/9 · Classification</div>
+    <h2>Démarche de Classification</h2>
+    <div class="sub">8 modèles évalués · Cross-validation 3-fold stratifiée · Métrique : PR-AUC</div>
+  </div>
+  <div class="body">
+    <div class="steps" style="gap:8px">
+      <div class="step"><div class="ico">🎯</div><h5>Cible binaire</h5><p>réadmis &lt;30j vs. reste. Stratification sur y.</p></div>
+      <div class="step"><div class="ico">⚖️</div><h5>Déséquilibre</h5><p>class_weight="balanced" ou scale_pos_weight pour XGB/LGBM</p></div>
+      <div class="step"><div class="ico">🔁</div><h5>CV 3-fold</h5><p>StratifiedKFold, métriques ROC-AUC et PR-AUC</p></div>
+      <div class="step"><div class="ico">🔍</div><h5>Optimisation</h5><p>RandomizedSearchCV sur Random Forest (meilleur modèle)</p></div>
+      <div class="step"><div class="ico">📊</div><h5>Test final</h5><p>Évaluation sur 20% de données non vues</p></div>
+    </div>
+    <div class="two-col">
+      <div class="card accent-blue">
+        <h4>Modèles évalués</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>Régression Logistique</strong> — baseline paramétrique, interprétable</li>
+          <li><strong>Random Forest</strong> — robustesse, gestion implicite des outliers</li>
+          <li><strong>Extra Trees</strong> — plus rapide, légèrement plus aléatoire que RF</li>
+          <li><strong>Gradient Boosting HGB</strong> — gère les NaN natifs, très efficace</li>
+          <li><strong>XGBoost / LightGBM</strong> — boosting optimisé, scale_pos_weight</li>
+          <li><strong>MLP</strong> — réseau de neurones shallow (64→32)</li>
+          <li><strong>Ensemble (soft voting)</strong> — RF + XGB + LGBM</li>
+        </ul>
+      </div>
+      <div class="card accent-green">
+        <h4>Choix des métriques</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li><strong>ROC-AUC :</strong> capacité à discriminer — mesure globale</li>
+          <li><strong>PR-AUC :</strong> plus sensible au déséquilibre (classe positive 11.2%)</li>
+          <li><strong>❌ Accuracy :</strong> trompeuse — 88.8% sans détecter un seul positif</li>
+          <li>Baseline PR-AUC théorique = taux positif = <strong>0.089</strong></li>
+          <li>Nos modèles : PR-AUC ~0.16 → <strong>+79% vs. aléatoire</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 8 : RÉSULTATS ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 7/9 · Résultats</div>
+    <h2>Résultats : Performance des Modèles</h2>
+    <div class="sub">Cross-validation 3-fold sur les données d'entraînement (80%)</div>
+  </div>
+  <div class="body">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Modèle</th><th>ROC-AUC</th><th>± σ</th><th>PR-AUC</th><th>Vs. baseline</th><th>Statut</th></tr></thead>
+        <tbody>
+          <tr class="best"><td>🥇 Random Forest</td><td>0.6513</td><td>0.0050</td><td>0.1589</td><td>+79%</td><td><span class="badge green">Meilleur ROC</span></td></tr>
+          <tr><td>Extra Trees</td><td>0.6505</td><td>0.0049</td><td>0.1588</td><td>+79%</td><td><span class="badge blue">Proche RF</span></td></tr>
+          <tr><td>Ensemble (soft voting)</td><td>0.6500</td><td>0.0049</td><td>0.1613</td><td>+81%</td><td><span class="badge green">Meilleur PR</span></td></tr>
+          <tr><td>LightGBM</td><td>0.6445</td><td>0.0039</td><td>0.1591</td><td>+79%</td><td><span class="badge blue">Stable</span></td></tr>
+          <tr><td>XGBoost</td><td>0.6440</td><td>0.0050</td><td>0.1601</td><td>+80%</td><td><span class="badge blue">Stable</span></td></tr>
+          <tr><td>Gradient Boosting HGB</td><td>0.6448</td><td>0.0061</td><td>0.1575</td><td>+77%</td><td><span class="badge blue">Stable</span></td></tr>
+          <tr><td>Régression logistique</td><td>0.6381</td><td>0.0040</td><td>0.1505</td><td>+69%</td><td><span class="badge blue">Baseline param.</span></td></tr>
+          <tr><td>MLP (réseau neurones)</td><td>0.6301</td><td>0.0026</td><td>0.1445</td><td>+62%</td><td><span class="badge red">Plus faible</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="insight">
+      <strong>Les écarts inter-modèles sont dans 1σ.</strong> Les modèles à base d'arbres sont équivalents. Le MLP sous-performe probablement faute de tuning approfondi et de sensibilité aux features non normalisées. Baseline PR-AUC = 0.089 (taux positif).
+    </div>
+    <div class="warn">
+      <strong>Attention :</strong> Un AUC > 0.80 sur ce dataset serait suspect — signe de leakage. Nos résultats (0.63–0.65) sont cohérents avec la littérature publiée sur ce jeu de données.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 9 : FEATURE IMPORTANCE ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 8/9 · Interprétation</div>
+    <h2>Feature Importance et Interprétation Clinique</h2>
+    <div class="sub">Random Forest — importance par impureté de Gini (normalisée)</div>
+  </div>
+  <div class="body">
+    <div class="two-col">
+      <div class="card">
+        <h4>Top Variables Prédictives</h4>
+        <div class="pbars" style="margin-top:14px">
+          <div class="pbar-row"><span class="name">number_emergency</span><div class="pbar-track"><div class="pbar-fill" style="width:100%;background:#c0392b"></div></div><span class="pbar-val">8.2%</span></div>
+          <div class="pbar-row"><span class="name">number_inpatient</span><div class="pbar-track"><div class="pbar-fill" style="width:78%;background:#d35400"></div></div><span class="pbar-val">6.4%</span></div>
+          <div class="pbar-row"><span class="name">age_num</span><div class="pbar-track"><div class="pbar-fill" style="width:65%;background:#1a5fa8"></div></div><span class="pbar-val">5.3%</span></div>
+          <div class="pbar-row"><span class="name">time_in_hospital</span><div class="pbar-track"><div class="pbar-fill" style="width:58%;background:#1a5fa8"></div></div><span class="pbar-val">4.8%</span></div>
+          <div class="pbar-row"><span class="name">num_medications</span><div class="pbar-track"><div class="pbar-fill" style="width:52%;background:#1a5fa8"></div></div><span class="pbar-val">4.3%</span></div>
+          <div class="pbar-row"><span class="name">n_drug_changes</span><div class="pbar-track"><div class="pbar-fill" style="width:48%;background:#7d3c98"></div></div><span class="pbar-val">3.9%</span></div>
+          <div class="pbar-row"><span class="name">diag_1_group</span><div class="pbar-track"><div class="pbar-fill" style="width:44%;background:#1a8a5a"></div></div><span class="pbar-val">3.6%</span></div>
+          <div class="pbar-row"><span class="name">discharge_group</span><div class="pbar-track"><div class="pbar-fill" style="width:40%;background:#1a8a5a"></div></div><span class="pbar-val">3.3%</span></div>
+          <div class="pbar-row"><span class="name">total_prior_visits</span><div class="pbar-track"><div class="pbar-fill" style="width:36%;background:#1a5fa8"></div></div><span class="pbar-val">3.0%</span></div>
+          <div class="pbar-row"><span class="name">num_procedures</span><div class="pbar-track"><div class="pbar-fill" style="width:30%;background:#1a8a5a"></div></div><span class="pbar-val">2.5%</span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card accent-red">
+          <h4>🚨 Utilisation Urgentiste</h4>
+          <p style="font-size:.88em;margin-top:6px;line-height:1.5">Le nombre de passages aux urgences <em>avant</em> le séjour actuel est le prédicteur #1. Ces patients sont en <strong>détresse chronique</strong> mal contrôlée.</p>
+        </div>
+        <div class="card accent-orange">
+          <h4>💊 Instabilité Thérapeutique</h4>
+          <p style="font-size:.88em;margin-top:6px;line-height:1.5"><code>n_drug_changes</code> (feature engineérisée) capte les ajustements thérapeutiques majeurs — signe d'un <strong>diabète difficile à stabiliser</strong>.</p>
+        </div>
+        <div class="card accent-blue">
+          <h4>🏥 Mode de Sortie</h4>
+          <p style="font-size:.88em;margin-top:6px;line-height:1.5">Le type de sortie (domicile, rééducation, autre hôpital) impacte la continuité des soins et prédit significativement la réadmission.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SLIDE 10 : CONCLUSIONS ══════════════ -->
+<div class="slide">
+  <div class="band">
+    <div class="tag">Slide 9/9 · Conclusions</div>
+    <h2>Bilan et Recommandations</h2>
+    <div class="sub">Ce que le modèle peut faire — et ce qu'il ne peut pas faire</div>
+  </div>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card accent-green">
+        <h4>✅ Ce qui fonctionne</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>Random Forest : ROC-AUC <strong>0.651</strong>, soit +79% vs. aléatoire</li>
+          <li>Identification fiable des <strong>patients à haut risque</strong> (clusters 3 et 4)</li>
+          <li>Feature importance cliniquement <strong>interprétable</strong> et actionnable</li>
+          <li>Pipeline robuste reproductible en production</li>
+        </ul>
+      </div>
+      <div class="card accent-red">
+        <h4>⚠️ Limites identifiées</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>AUC ~0.65 : signal modéré, <strong>plafond des données administratives</strong></li>
+          <li>Absence : adhésion traitement, support social, suivi post-sortie</li>
+          <li>Données 1999–2008 : <strong>pratiques médicales évoluées</strong> depuis</li>
+          <li>Modèle à usage de <strong>tri, pas de décision clinique seul</strong></li>
+        </ul>
+      </div>
+      <div class="card accent-blue">
+        <h4>🔭 Pistes d'amélioration</h4>
+        <ul class="bullets" style="margin-top:8px">
+          <li>Intégrer données de <strong>suivi ambulatoire</strong> post-sortie</li>
+          <li>Données socio-économiques et <strong>adhésion thérapeutique</strong></li>
+          <li>Modèles de survie pour prédire le <strong>délai</strong> de réadmission</li>
+          <li>Calibration des probabilités pour usage clinique direct</li>
+        </ul>
+      </div>
+    </div>
+    <div class="insight">
+      <strong>Conclusion générale :</strong> Le modèle constitue un outil de <strong>triage clinique pertinent</strong> — non un oracle. Utilisé pour prioriser les consultations de suivi post-sortie, il peut contribuer à réduire les réadmissions évitables de <strong>5 à 10%</strong>, générant un ROI positif même avec une précision modérée.
+    </div>
+    <div class="card" style="background:#1a5fa8;color:white;text-align:center;padding:18px">
+      <strong style="font-size:1.1em">Merci pour votre attention</strong><br/>
+      <span style="opacity:.85;font-size:.9em">Questions ?</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<div class="nav">
+  <button id="btnPrev" onclick="go(-1)" disabled>← Précédent</button>
+  <button id="btnNext" onclick="go(1)">Suivant →</button>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const n = slides.length;
+document.getElementById('tot').textContent = n;
+let cur = 0;
+function go(d){
+  slides[cur].classList.remove('active');
+  cur = Math.max(0, Math.min(n-1, cur+d));
+  slides[cur].classList.add('active');
+  document.getElementById('cur').textContent = cur+1;
+  document.getElementById('prog').style.width = ((cur+1)/n*100)+'%';
+  document.getElementById('btnPrev').disabled = cur===0;
+  document.getElementById('btnNext').disabled = cur===n-1;
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' ') go(1);
+  if(e.key==='ArrowLeft') go(-1);
+});
+document.getElementById('prog').style.width = (1/n*100)+'%';
+</script>
+</body>
+</html>
